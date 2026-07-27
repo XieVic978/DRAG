@@ -8,12 +8,19 @@ pnpm-debug.log*
 lerna-debug.log*
 
 .venv
-node_module
+node_modules
+__pycache__/
+*.py[cod]
 .env
 .env.local
 dist
 dist-ssr
 *.local
+
+# Uploaded files and local RAG state
+backend/data/uploads/
+backend/data/documents.sqlite3
+backend/data/documents.sqlite3-*
 
 # Editor directories and files
 .vscode/*
@@ -25,4 +32,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-

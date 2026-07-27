@@ -1,16 +1,84 @@
-# React + Vite
+# Ask Your Documents
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A local RAG web application that accepts batches of PDF, TXT, and CSV files,
+indexes their contents with Sentence Transformers and FAISS, and answers
+questions with Groq.
 
-Currently, two official plugins are available:
+## How it works
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. React sends selected files as multipart form data.
+2. FastAPI streams each file to `backend/data/uploads`.
+3. The loader extracts text and preserves the filename and PDF page.
+4. The embedding pipeline splits the text into overlapping chunks.
+5. New vectors and metadata are appended to the persisted FAISS index.
+6. A SQLite registry tracks uploaded documents and their processing status.
+7. Search retrieves the closest chunks and asks Groq to answer only from them.
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Create and activate a virtual environment:
 
-## Expanding the ESLint configuration
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Install backend dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Install frontend dependencies:
+
+```bash
+npm install
+```
+
+Copy the environment template and add your Groq key:
+
+```bash
+cp .env.example .env
+```
+
+## Run the application
+
+Start FastAPI in the first terminal:
+
+```bash
+source .venv/bin/activate
+python app.py
+```
+
+Start React in a second terminal:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+The first backend start may download `all-MiniLM-L6-v2` from Hugging Face.
+
+## API
+
+- `POST /api/documents` uploads and indexes up to 50 files per request.
+- `GET /api/documents` lists registered documents and the indexed chunk count.
+- `DELETE /api/documents/{document_id}` removes a file and its vectors.
+- `POST /api/search` answers a question and returns retrieved sources.
+
+Uploads accept PDF, TXT, and CSV files up to 20 MB each. Repeated upload batches
+let the library grow over time; the limit is per request, not the whole library.
+
+## Local data
+
+The application stores runtime data in:
+
+- `backend/data/uploads/` for original uploads
+- `backend/data/documents.sqlite3` for the document registry
+- `faiss_store/faiss.index` for vectors
+- `faiss_store/metadata.pkl` for chunk text and source metadata
+
+Run a single FastAPI worker with this local FAISS architecture. A production
+multi-worker deployment should use shared object storage, a job queue, and a
+network-accessible vector database.

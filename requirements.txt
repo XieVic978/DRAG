@@ -9,3 +9,5 @@ chromadb
 langchain-groq
 fastapi
 uvicorn
+python-multipart
+python-dotenv

@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
@@ -16,26 +17,89 @@ class RAGSearch:
         llm_model: str = "openai/gpt-oss-120b",
     ):
         self.vectorstore = FaissVectorStore(persist_dir, embedding_model)
-        # Load or build vectorstore
-        faiss_path = os.path.join(persist_dir, "faiss.index")
-        meta_path = os.path.join(persist_dir, "metadata.pkl")
-        if not (os.path.exists(faiss_path) and os.path.exists(meta_path)):
-            from data_loader import load_all_documents
-
-            docs = load_all_documents("data")
-            self.vectorstore.build_from_documents(docs)
-        else:
+        if self.vectorstore.exists():
             self.vectorstore.load()
+
         groq_api_key = os.getenv("GROQ_API_KEY")
-        self.llm = ChatGroq(groq_api_key=groq_api_key, model_name=llm_model)
+        self.llm = ChatGroq(
+            groq_api_key=groq_api_key,
+            model_name=llm_model,
+            temperature=0,
+        )
         print(f"[INFO] Groq LLM initialized: {llm_model}")
 
-    def search_and_summarize(self, query: str, top_k: int = 5) -> str:
+    def search_and_answer(
+        self,
+        query: str,
+        top_k: int = 5,
+    ) -> dict[str, Any]:
         results = self.vectorstore.query(query, top_k=top_k)
-        texts = [r["metadata"].get("text", "") for r in results if r["metadata"]]
-        context = "\n\n".join(texts)
-        if not context:
-            return "No relevant documents found."
-        prompt = f"""Summarize the following context for the query: '{query}'\n\nContext:\n{context}\n\nSummary:"""
-        response = self.llm.invoke([prompt])
-        return response.content
+        if not results:
+            return {
+                "answer": "Upload at least one document before asking a question.",
+                "sources": [],
+            }
+
+        context_sections = []
+        sources = []
+        seen_sources = set()
+
+        for number, result in enumerate(results, start=1):
+            metadata = result["metadata"]
+            text = metadata.get("text", "").strip()
+            if not text:
+                continue
+
+            filename = metadata.get("filename") or os.path.basename(
+                metadata.get("source", "Unknown document")
+            )
+            page = metadata.get("page")
+            page_label = page + 1 if isinstance(page, int) else None
+            context_sections.append(
+                f"[Source {number}: {filename}"
+                f"{f', page {page_label}' if page_label else ''}]\n{text}"
+            )
+
+            source_key = (metadata.get("document_id"), filename, page_label)
+            if source_key not in seen_sources:
+                seen_sources.add(source_key)
+                sources.append(
+                    {
+                        "document_id": metadata.get("document_id"),
+                        "filename": filename,
+                        "page": page_label,
+                    }
+                )
+
+        if not context_sections:
+            return {
+                "answer": "The uploaded documents did not contain readable context.",
+                "sources": [],
+            }
+
+        context = "\n\n".join(context_sections)
+        prompt = f"""You answer questions using only the uploaded document excerpts below.
+
+Rules:
+- Answer the user's actual question, not merely summarize the excerpts.
+- Do not use outside knowledge.
+- If the excerpts do not contain enough information, say so clearly.
+- Keep the answer direct and useful.
+- Cite supporting excerpts inline using [Source 1], [Source 2], and so on.
+
+Question:
+{query}
+
+Document excerpts:
+{context}
+
+Answer:"""
+        response = self.llm.invoke(prompt)
+        return {
+            "answer": response.content,
+            "sources": sources,
+        }
+
+    # Kept for compatibility with the original command-line example.
+    def search_and_summarize(self, query: str, top_k: int = 5) -> str:
+        return self.search_and_answer(query, top_k=top_k)["answer"]

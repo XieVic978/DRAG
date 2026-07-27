@@ -1,25 +1,22 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from backend.src.search import RAGSearch
+from backend.api.dependencies import rag_service
 
 router = APIRouter()
 
-rag_search = RAGSearch()
-
 
 class SearchRequest(BaseModel):
-    query: str
-    top_k: int = 5
+    query: str = Field(min_length=1, max_length=4000)
+    top_k: int = Field(default=5, ge=1, le=20)
 
 
 @router.post("/search")
 def search(request: SearchRequest):
     try:
-        answer = rag_search.search_and_summarize(
-            request.query,
+        return rag_service.search_and_answer(
+            request.query.strip(),
             top_k=request.top_k,
         )
-        return {"answer": answer}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error

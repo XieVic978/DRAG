@@ -1,15 +1,57 @@
 from pathlib import Path
-from typing import List, Any
-from langchain_community.document_loaders import PyPDFLoader, TextLoader, CSVLoader
-from langchain_community.document_loaders import Docx2txtLoader
-from langchain_community.document_loaders.excel import UnstructuredExcelLoader
-from langchain_community.document_loaders import JSONLoader
+from typing import Any
+
+from langchain_community.document_loaders import (
+    CSVLoader,
+    PyPDFLoader,
+    TextLoader,
+)
 
 
-def load_all_documents(data_dir: str) -> List[Any]:
+SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".csv"}
+
+
+def load_document(
+    file_path: str,
+    document_id: str,
+    original_name: str,
+) -> list[Any]:
+    """Load one uploaded file and attach metadata to every page/row."""
+    path = Path(file_path).resolve()
+    suffix = path.suffix.lower()
+
+    if suffix == ".pdf":
+        documents = PyPDFLoader(str(path)).load()
+    elif suffix == ".txt":
+        documents = TextLoader(
+            str(path),
+            encoding="utf-8",
+            autodetect_encoding=True,
+        ).load()
+    elif suffix == ".csv":
+        documents = CSVLoader(str(path), autodetect_encoding=True).load()
+    else:
+        raise ValueError(f"Unsupported file type: {suffix or 'unknown'}")
+
+    if not documents:
+        raise ValueError("The file did not contain readable text")
+
+    for document in documents:
+        document.metadata.update(
+            {
+                "document_id": document_id,
+                "filename": original_name,
+                "source": str(path),
+            }
+        )
+
+    return documents
+
+
+def load_all_documents(data_dir: str) -> list[Any]:
     """
     Load all supported files from the data directory and convert to LangChain document structure.
-    Supported: PDF, TXT, CSV, Excel, Word, JSON
+    Supported: PDF, TXT, CSV
     """
     # Use project root data folder
     data_path = Path(data_dir).resolve()
@@ -57,7 +99,8 @@ def load_all_documents(data_dir: str) -> List[Any]:
 
     return documents
 
-    if __name__ == "__main__":
-        docs = load_all_documents("data")
-        print(f"Loaded {len(docs)} documents.")
-        print("Example document:", docs[0] if docs else None)
+
+if __name__ == "__main__":
+    docs = load_all_documents("backend/data")
+    print(f"Loaded {len(docs)} documents.")
+    print("Example document:", docs[0] if docs else None)
