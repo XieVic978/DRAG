@@ -4,6 +4,17 @@ A local RAG web application that accepts batches of PDF, TXT, and CSV files,
 indexes their contents with Sentence Transformers and FAISS, and answers
 questions with Groq.
 
+## Tech Stack
+
+- **Frontend:** React, Vite, JavaScript, and CSS
+- **Backend:** Python, FastAPI, Uvicorn, and Pydantic
+- **RAG pipeline:** LangChain document loaders and text splitters
+- **Embeddings:** Sentence Transformers with `all-MiniLM-L6-v2`
+- **Vector search:** FAISS
+- **LLM:** Groq through `langchain-groq`
+- **Data storage:** SQLite, local file storage, and persisted FAISS metadata
+- **Document processing:** PyPDF, TXT, and CSV loaders
+
 ## How it works
 
 1. React sends selected files as multipart form data.
