@@ -4,6 +4,16 @@ A local RAG web application that accepts batches of PDF, TXT, and CSV files,
 indexes their contents with Sentence Transformers and FAISS, and answers
 questions with Groq.
 
+## How it works
+
+1. React sends selected files as multipart form data.
+2. FastAPI streams each file to `backend/data/uploads`.
+3. The loader extracts text and preserves the filename and PDF page.
+4. The embedding pipeline splits the text into overlapping chunks.
+5. New vectors and metadata are appended to the persisted FAISS index.
+6. A SQLite registry tracks uploaded documents and their processing status.
+7. Search retrieves the closest chunks and asks Groq to answer only from them.
+
 ## Tech Stack
 
 | Layer | Tech |
@@ -16,16 +26,6 @@ questions with Groq.
 | LLM | Groq through `langchain-groq` |
 | Data storage | SQLite, local file storage, persisted FAISS metadata |
 | Document processing | PyPDF, TXT, and CSV loaders |
-
-## How it works
-
-1. React sends selected files as multipart form data.
-2. FastAPI streams each file to `backend/data/uploads`.
-3. The loader extracts text and preserves the filename and PDF page.
-4. The embedding pipeline splits the text into overlapping chunks.
-5. New vectors and metadata are appended to the persisted FAISS index.
-6. A SQLite registry tracks uploaded documents and their processing status.
-7. Search retrieves the closest chunks and asks Groq to answer only from them.
 
 ## Setup
 
