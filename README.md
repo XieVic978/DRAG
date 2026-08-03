@@ -1,4 +1,4 @@
-# Ask Your Documents
+# DRAG
 
 A local RAG web application that accepts batches of PDF, TXT, and CSV files,
 indexes their contents with Sentence Transformers and FAISS, and answers
